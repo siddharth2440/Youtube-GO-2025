@@ -13,15 +13,23 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 
 	// services
 	authService := services.NewAuthService(mongo, redis)
+	userservice := services.NewUserService(mongo, redis)
 
 	// handlers
 	authHandler := handlers.NewAuthHandler(authService)
+	userHandler := handlers.NewUserHandler(userservice)
 
 	authRoute := route.Group("/api/v1/auth")
 	{
 		authRoute.POST("/register", authHandler.UserRegisterHandler)
 		authRoute.POST("/login", authHandler.UserLoginHandler)
 		authRoute.GET("/logout", authHandler.UserLogoutHandler)
+	}
+
+	userRoute := route.Group("/api/v1/user")
+	{
+		userRoute.PUT("/update-user-details/:userid", userHandler.UpdateUserDetailsHandler)
+		userRoute.DELETE("/delete-user/:userid", userHandler.DeleteUserHandler)
 	}
 
 	route.GET("/", func(ctx *gin.Context) {

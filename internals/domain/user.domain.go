@@ -50,3 +50,15 @@ func FormatLogin(payload *LoginPayload) *LoginPayload {
 		Password: strings.ToLower(payload.Password),
 	}
 }
+
+type UpdateDetails struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+func NewUpdateDetails(details *UpdateDetails) *UpdateDetails {
+	return &UpdateDetails{
+		Name:  strings.ToLower((*details).Name),
+		Email: strings.ToLower((*details).Email),
+	}
+}

@@ -24,7 +24,7 @@ func RegisterUserRedis(ctx context.Context, userChan chan *domain.User, errChan 
 		return
 	}
 
-	redis_result, err := redis.Set(ctx, "user:"+get_user.ID.Hex(), string(m_user), 0).Result()
+	redis_result, err := redis.HSet(ctx, "users", "user:"+get_user.ID.Hex(), string(m_user)).Result()
 	if err != nil {
 		errChan <- fmt.Errorf("error setting user in redis: %w", err)
 		return
