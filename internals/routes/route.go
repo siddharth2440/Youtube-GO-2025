@@ -30,6 +30,9 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 	{
 		userRoute.PUT("/update-user-details/:userid", userHandler.UpdateUserDetailsHandler)
 		userRoute.DELETE("/delete-user/:userid", userHandler.DeleteUserHandler)
+		userRoute.GET("/get-user/:userid", userHandler.GetUserInfoHandler)
+		userRoute.GET("/get-users/", userHandler.GetUsersHandler)
+		userRoute.GET("/get-user-by-query/", userHandler.GetUsersByQuery)
 	}
 
 	route.GET("/", func(ctx *gin.Context) {

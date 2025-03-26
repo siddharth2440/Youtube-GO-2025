@@ -42,7 +42,7 @@ func DeleteUserInRedis(ctx context.Context, userid string, errChan chan<- error,
 
 	isExists, err := redis.HExists(ctx, "users", "user:"+userid).Result()
 	if err != nil || !isExists {
-		errChan <- fmt.Errorf("User doesnot exists")
+		errChan <- fmt.Errorf("user doesnot exists")
 		return
 	}
 
@@ -52,4 +52,28 @@ func DeleteUserInRedis(ctx context.Context, userid string, errChan chan<- error,
 		return
 	}
 	fmt.Printf("\n delete response from Redis : %v \n", del_res)
+}
+
+func GetUserFromRedis(ctx context.Context, userchan chan<- *domain.User, errchan chan<- error, userid string, db *redis.Client) {
+	defer func() {
+		fmt.Println("Get User from Redis Routine Completed...")
+	}()
+
+	var getUser domain.User
+	user, err := db.HGet(ctx, "users", "user:"+userid).Result()
+	if err != nil {
+		println(err.Error())
+		errchan <- err
+		return
+	}
+
+	err = json.Unmarshal([]byte(user), &getUser)
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	fmt.Println(getUser)
+
+	userchan <- &getUser
 }

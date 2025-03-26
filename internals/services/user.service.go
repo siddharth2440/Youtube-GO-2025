@@ -16,6 +16,9 @@ import (
 type UserServiceInterface interface {
 	UpdateUserDetailsService(userDetails *domain.UpdateDetails, userid string) (*domain.User, error)
 	DeleteUserService(userid string) (*domain.User, error)
+	GetUserService(userid string) (*domain.User, error)
+	GetUsersService(query string) (*[]domain.User, error)
+	GetUserByQuery(query string) (*[]domain.User, error)
 }
 
 type UserServiceStruct struct {
@@ -81,6 +84,71 @@ func (NUs *UserServiceStruct) DeleteUserService(userid string) (*domain.User, er
 		case user := <-userChan:
 			return user, nil
 		case err := <-errChan:
+			return nil, err
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
+}
+
+func (NUs *UserServiceStruct) GetUserService(userid string) (*domain.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	userchan := make(chan *domain.User, 1)
+	errchan := make(chan error, 1)
+
+	go redisworkers.GetUserFromRedis(ctx, userchan, errchan, userid, NUs.redis)
+
+	for {
+		select {
+		case user := <-userchan:
+			return user, nil
+		case err := <-errchan:
+			return nil, err
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
+}
+
+func (NUs *UserServiceStruct) GetUsersService(query string) (*[]domain.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	userChan := make(chan *[]domain.User, 1)
+	errChan := make(chan error, 1)
+
+	// TODO
+	go mongoworkers.GetUsers(ctx, userChan, errChan, NUs.db, query)
+
+	for {
+		select {
+		case user := <-userChan:
+			return user, nil
+		case err := <-errChan:
+			return nil, err
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
+}
+
+func (NUs *UserServiceStruct) GetUserByQuery(query string) (*[]domain.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	userchan := make(chan *[]domain.User, 1)
+	errchan := make(chan error, 1)
+
+	//TODO
+	go mongoworkers.GetUserByQuery(ctx, userchan, query, errchan, NUs.db)
+
+	for {
+		select {
+		case user := <-userchan:
+			return user, nil
+		case err := <-errchan:
 			return nil, err
 		case <-ctx.Done():
 			return nil, context.DeadlineExceeded

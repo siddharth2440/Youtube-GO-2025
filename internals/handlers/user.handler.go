@@ -100,5 +100,119 @@ func (NUh *UserHandlerStruct) DeleteUserHandler(ctx *gin.Context) {
 }
 
 // get user info
+func (NUh *UserHandlerStruct) GetUserInfoHandler(ctx *gin.Context) {
+	userId := ctx.Param("userid")
+
+	userchan := make(chan *domain.User, 1)
+	errchan := make(chan error, 1)
+
+	go func(userchan chan<- *domain.User, errchan chan<- error, userId string) {
+		user, err := NUh.services.GetUserService(userId)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		userchan <- user
+	}(userchan, errchan, userId)
+
+	for {
+		select {
+		case user := <-userchan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    user,
+				},
+			)
+			return
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
+
 // get users
-// find by query
+func (NUh *UserHandlerStruct) GetUsersHandler(ctx *gin.Context) {
+	query := ctx.Query("users")
+	userchan := make(chan *[]domain.User, 1)
+	errchan := make(chan error, 1)
+
+	go func(userchan chan<- *[]domain.User, errchan chan<- error, query string) {
+		users, err := NUh.services.GetUsersService(query)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		userchan <- users
+	}(userchan, errchan, query)
+	for {
+		select {
+		case user := <-userchan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    user,
+				},
+			)
+			return
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
+
+// find by query := "email" or "username"
+func (NUh *UserHandlerStruct) GetUsersByQuery(ctx *gin.Context) {
+	query := ctx.Query("query")
+
+	userchan := make(chan *[]domain.User, 1)
+	errchan := make(chan error, 1)
+
+	go func(userchan chan<- *[]domain.User, errchan chan<- error, query string) {
+		usrs, err := NUh.services.GetUserByQuery(query)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		userchan <- usrs
+	}(userchan, errchan, query)
+
+	for {
+		select {
+		case user := <-userchan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    user,
+				},
+			)
+			return
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
