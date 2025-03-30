@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/itsmonday/youtube/internals/handlers"
+	"github.com/itsmonday/youtube/internals/middlewares"
 	"github.com/itsmonday/youtube/internals/services"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -27,12 +28,15 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 	}
 
 	userRoute := route.Group("/api/v1/user")
+	userRoute.Use(middlewares.AuthMiddleware())
 	{
 		userRoute.PUT("/update-user-details/:userid", userHandler.UpdateUserDetailsHandler)
 		userRoute.DELETE("/delete-user/:userid", userHandler.DeleteUserHandler)
 		userRoute.GET("/get-user/:userid", userHandler.GetUserInfoHandler)
 		userRoute.GET("/get-users/", userHandler.GetUsersHandler)
 		userRoute.GET("/get-user-by-query/", userHandler.GetUsersByQuery)
+		userRoute.PUT("/subscribe-user/:userid", userHandler.SubscribeUserHandler)
+		userRoute.PUT("/unsubscribe-user/:userid", userHandler.UnsubscribeUserHandler)
 	}
 
 	route.GET("/", func(ctx *gin.Context) {

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -9,13 +10,14 @@ import (
 
 func GenerateJWTToken(userId, name, email string) (string, error) {
 	env, _ := configs.Config()
+	fmt.Printf("\n%v - %v - %v\n", userId, name, email)
 	token := jwt.NewWithClaims(
 		jwt.SigningMethodHS256,
 		jwt.MapClaims{
 			"id":    userId,
 			"name":  name,
 			"email": email,
-			"exp":   time.Now().Add(time.Hour * 24),
+			"exp":   time.Now().Add(time.Hour * 24).Unix(),
 		},
 	)
 
@@ -34,7 +36,9 @@ func JWT_Verification(tokenString string) (*jwt.Token, error) {
 	})
 
 	if err != nil {
+		fmt.Printf("\n%v\n", err)
 		return nil, err
 	}
+	fmt.Printf("\n User Token After Verification  %v\n", token)
 	return token, nil
 }

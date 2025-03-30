@@ -19,6 +19,8 @@ type UserServiceInterface interface {
 	GetUserService(userid string) (*domain.User, error)
 	GetUsersService(query string) (*[]domain.User, error)
 	GetUserByQuery(query string) (*[]domain.User, error)
+	SubscribeUserService(userid, id string) (*domain.User, error)
+	UnsubscribeUserService(userid, id string) (*domain.User, error)
 }
 
 type UserServiceStruct struct {
@@ -149,6 +151,61 @@ func (NUs *UserServiceStruct) GetUserByQuery(query string) (*[]domain.User, erro
 		case user := <-userchan:
 			return user, nil
 		case err := <-errchan:
+			return nil, err
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
+}
+
+// User Subscribe a channel
+func (NUs *UserServiceStruct) SubscribeUserService(userid, id string) (*domain.User, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	userChan := make(chan *domain.User, 1)
+	errChan := make(chan error, 1)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go mongoworkers.SubscribeUserInMongoDB(ctx, userChan, errChan, userid, id, &wg, NUs.db)
+	go redisworkers.SubscribeUserInRedis(ctx, userChan, errChan, NUs.redis, &wg, userid, id)
+
+	wg.Wait()
+	for {
+		select {
+		case user := <-userChan:
+			return user, nil
+		case err := <-errChan:
+			return nil, err
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
+}
+
+// User Unsubscribe a channel
+func (NUs *UserServiceStruct) UnsubscribeUserService(userid, id string) (*domain.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	userChan := make(chan *domain.User, 1)
+	errChan := make(chan error, 1)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go mongoworkers.UnsubscribeUserInMongoDB(ctx, userChan, errChan, userid, id, &wg, NUs.db)
+	go redisworkers.UnSubscribeUserInRedis(ctx, userChan, errChan, userid, id, NUs.redis, &wg)
+
+	wg.Wait()
+	for {
+		select {
+		case user := <-userChan:
+			return user, nil
+		case err := <-errChan:
 			return nil, err
 		case <-ctx.Done():
 			return nil, context.DeadlineExceeded

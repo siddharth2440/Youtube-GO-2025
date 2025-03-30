@@ -166,3 +166,109 @@ func GetUserByQuery(ctx context.Context, userChan chan<- *[]domain.User, query s
 
 	userChan <- &get_users
 }
+
+func SubscribeUserInMongoDB(ctx context.Context, userChan chan<- *domain.User, errChan chan<- error, userid string, me string, wg *sync.WaitGroup, db *mongo.Client) {
+	defer func() {
+		fmt.Println("User Subscribed to a channel in mongodb")
+		wg.Done()
+	}()
+
+	user_ob_id, _ := primitive.ObjectIDFromHex(userid)
+	me_ob_id, _ := primitive.ObjectIDFromHex(me)
+
+	to_find_user := bson.M{
+		"_id": user_ob_id,
+	}
+
+	to_find_me := bson.M{
+		"_id": me_ob_id,
+	}
+
+	upda_user, err := db.Database("youtube").Collection("users").UpdateOne(ctx, to_find_user, bson.M{
+		"$inc": bson.M{
+			"subscribers": 1,
+		},
+	})
+	if err != nil {
+		errChan <- err
+		return
+	}
+	fmt.Println("After Updating the Channel Subscribers")
+	fmt.Println(upda_user)
+
+	update_me, err := db.Database("youtube").Collection("users").UpdateOne(ctx, to_find_me, bson.M{
+		"$addToSet": bson.M{
+			"subscribedusers": userid,
+		},
+	})
+	fmt.Println("After Updating the User")
+	fmt.Println(update_me)
+
+	if err != nil {
+		errChan <- err
+		return
+	}
+
+	var user domain.User
+
+	if err := db.Database("youtube").Collection("users").FindOne(ctx, to_find_me).Decode(&user); err != nil {
+		errChan <- err
+		return
+	}
+	userChan <- &user
+
+}
+
+func UnsubscribeUserInMongoDB(ctx context.Context, userChan chan<- *domain.User, errChan chan<- error, userid string, me string, wg *sync.WaitGroup, db *mongo.Client) {
+	defer func() {
+		fmt.Println("User Subscribed to a channel in mongodb")
+		wg.Done()
+	}()
+
+	user_obj_id, _ := primitive.ObjectIDFromHex(userid)
+	me_obj_id, _ := primitive.ObjectIDFromHex(me)
+
+	to_find_user := bson.M{
+		"_id": user_obj_id,
+	}
+
+	to_find_me := bson.M{
+		"_id": me_obj_id,
+	}
+
+	to_update_user_channel_details := bson.M{
+		"$inc": bson.M{
+			"subscribers": -1,
+		},
+	}
+
+	to_update_me := bson.M{
+		"$pull": bson.M{
+			"subscribedusers": userid,
+		},
+	}
+
+	chan_update_result, err := db.Database("youtube").Collection("users").UpdateOne(ctx, to_find_user, to_update_user_channel_details)
+	if err != nil {
+		errChan <- err
+		return
+	}
+
+	fmt.Printf("\n Chanel Details updated after Unsubscription %v \n", chan_update_result)
+
+	my_details_upated, err := db.Database("youtube").Collection("users").UpdateOne(ctx, to_find_me, to_update_me)
+	if err != nil {
+		errChan <- err
+		return
+	}
+
+	fmt.Printf("\n After Unsubscribe to channel my details updated %v \n", my_details_upated)
+
+	var user domain.User
+
+	if err := db.Database("youtube").Collection("users").FindOne(ctx, bson.M{"_id": me_obj_id}).Decode(&user); err != nil {
+		errChan <- err
+		return
+	}
+	userChan <- &user
+}

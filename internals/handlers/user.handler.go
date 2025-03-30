@@ -216,3 +216,88 @@ func (NUh *UserHandlerStruct) GetUsersByQuery(ctx *gin.Context) {
 		}
 	}
 }
+
+func (NUh *UserHandlerStruct) SubscribeUserHandler(ctx *gin.Context) {
+	userId := ctx.Param("userid")
+	me := ctx.GetString("authuserid")
+
+	fmt.Printf("\n  userId := %v\n", userId)
+	fmt.Printf("\n  me := %v\n", me)
+
+	userChan := make(chan *domain.User, 1)
+	errChan := make(chan error, 1)
+
+	go func(userchan chan<- *domain.User, errchan chan<- error, userid string, me string) {
+		user, err := NUh.services.SubscribeUserService(userid, me)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		userChan <- user
+
+	}(userChan, errChan, userId, me)
+	for {
+		select {
+		case user := <-userChan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    user,
+				},
+			)
+			return
+		case err := <-errChan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
+
+func (NUh *UserHandlerStruct) UnsubscribeUserHandler(ctx *gin.Context) {
+	userid := ctx.Param("userid")
+	me := ctx.GetString("authuserid")
+
+	userChan := make(chan *domain.User, 1)
+	errChan := make(chan error, 1)
+
+	go func(userChan chan<- *domain.User, errChan chan<- error, userid string, me string) {
+		user, err := NUh.services.UnsubscribeUserService(userid, me)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		userChan <- user
+	}(userChan, errChan, userid, me)
+
+	for {
+		select {
+		case user := <-userChan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    user,
+				},
+			)
+			return
+
+		case err := <-errChan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": true,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+
+}
