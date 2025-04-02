@@ -15,10 +15,12 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 	// services
 	authService := services.NewAuthService(mongo, redis)
 	userservice := services.NewUserService(mongo, redis)
+	videoService := services.NewVideoService(mongo, redis)
 
 	// handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userservice)
+	videoHandler := handlers.NewVideoHandler(videoService)
 
 	authRoute := route.Group("/api/v1/auth")
 	{
@@ -37,6 +39,19 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 		userRoute.GET("/get-user-by-query/", userHandler.GetUsersByQuery)
 		userRoute.PUT("/subscribe-user/:userid", userHandler.SubscribeUserHandler)
 		userRoute.PUT("/unsubscribe-user/:userid", userHandler.UnsubscribeUserHandler)
+	}
+
+	videoRoute := route.Group("/api/v1/video")
+	videoRoute.Use(middlewares.AuthMiddleware())
+	{
+		videoRoute.POST("/add-video", videoHandler.AddVideoHandler)
+		videoRoute.PUT("/update-video/:video_id", videoHandler.UpdateVideoHandler)
+		videoRoute.DELETE("/delete-video/:video_id", videoHandler.DeleteVideoHandler)
+	}
+
+	publicVideoRoute := route.Group("/api/v1/public-video")
+	{
+		publicVideoRoute.GET("/get-video/:videoid", videoHandler.GetVideoDetailsHandler)
 	}
 
 	route.GET("/", func(ctx *gin.Context) {

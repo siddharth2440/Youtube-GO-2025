@@ -19,11 +19,13 @@ type Video struct {
 	Dislikes    []string           `json:"dislikes" bson:"dislikes"`
 	CreatedAt   time.Time          `json:"createdAt" bson:"createdAt"`
 	UpdatedAt   time.Time          `json:"updatedAt" bson:"updatedAt"`
+	UserId      primitive.ObjectID `json:"user_id" bson:"user_id"`
 }
 
-func NewVideo(video *Video) *Video {
+func NewVideo(video *Video, userid primitive.ObjectID) *Video {
 	return &Video{
 		ID:          primitive.NewObjectID(),
+		UserId:      userid,
 		Title:       strings.ToLower((*video).Title),
 		Description: strings.ToLower((*video).Description),
 		ImgURI:      strings.ToLower((*video).ImgURI),
@@ -34,5 +36,21 @@ func NewVideo(video *Video) *Video {
 		Dislikes:    make([]string, 0),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
+	}
+}
+
+type UpdateVideoPayload struct {
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags"`
+	ImgURI      string   `json:"img_uri"`
+}
+
+func NewUpdatePayload(payload *UpdateVideoPayload) *UpdateVideoPayload {
+	return &UpdateVideoPayload{
+		Title:       (*payload).Title,
+		Description: (*payload).Description,
+		Tags:        (*payload).Tags,
+		ImgURI:      (*payload).ImgURI,
 	}
 }
