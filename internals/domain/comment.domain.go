@@ -13,11 +13,11 @@ type Comment struct {
 	Description string             `json:"desc" bson:"desc"`
 }
 
-func NewComment(comment *Comment) *Comment {
+func NewComment(comment *Comment, userid primitive.ObjectID, videoid primitive.ObjectID) *Comment {
 	return &Comment{
 		ID:          primitive.NewObjectID(),
-		UserId:      (*comment).UserId,
-		VideoId:     (*comment).VideoId,
+		UserId:      userid,
+		VideoId:     videoid,
 		Description: strings.ToLower((*comment).Description),
 	}
 }

@@ -16,11 +16,13 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 	authService := services.NewAuthService(mongo, redis)
 	userservice := services.NewUserService(mongo, redis)
 	videoService := services.NewVideoService(mongo, redis)
+	commentService := services.NewCommentService(mongo, redis)
 
 	// handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userservice)
 	videoHandler := handlers.NewVideoHandler(videoService)
+	commentHandler := handlers.NewCommentHandler(commentService)
 
 	authRoute := route.Group("/api/v1/auth")
 	{
@@ -57,6 +59,17 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 		publicVideoRoute.GET("/get-random-videos", videoHandler.GetRandomVideosHandler)
 		publicVideoRoute.GET("/search-videos", videoHandler.SearchVideoHandler)
 		publicVideoRoute.GET("/trending-videos", videoHandler.TrendingVideosHandler)
+	}
+
+	commentProtectedRoute := route.Group("/api/v1/comment")
+	commentProtectedRoute.Use(middlewares.AuthMiddleware())
+	{
+		commentProtectedRoute.POST("/add-comment/:videoid", commentHandler.AddCommentHandler)
+	}
+
+	commentpublicroute := route.Group("/api/v1/public-comment")
+	{
+		commentpublicroute.GET("/get-comments/:videoid", commentHandler.GetCommentsHandler)
 	}
 
 	route.GET("/", func(ctx *gin.Context) {
