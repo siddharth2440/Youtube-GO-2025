@@ -3,6 +3,7 @@ package mongoworkers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/itsmonday/youtube/internals/domain"
@@ -140,4 +141,185 @@ func GetMovieDetails(ctx context.Context, videochan chan<- *domain.Video, errcha
 		return
 	}
 	videochan <- &video
+}
+
+func RandomVideos(ctx context.Context, videochan chan<- *[]domain.Video, errchan chan<- error, db *mongo.Client, limit string) {
+
+	c_limit, _ := strconv.Atoi(limit)
+	to_get_random_videos := bson.A{
+		bson.M{
+			"$sample": bson.M{
+				"size": c_limit,
+			},
+		},
+	}
+
+	var videos []domain.Video
+	cur, err := db.Database("youtube").Collection("videos").Aggregate(ctx, to_get_random_videos)
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	for cur.Next(ctx) {
+		var video domain.Video
+		if err := cur.Decode(&video); err != nil {
+			errchan <- err
+			return
+		}
+		videos = append(videos, video)
+	}
+	if err := cur.Close(ctx); err != nil {
+		errchan <- err
+		return
+	}
+	videochan <- &videos
+}
+
+func SearchVideoInMongodb(ctx context.Context, query string, videoschan chan<- *[]domain.Video, errchan chan<- error, db *mongo.Client) {
+
+	to_search_videos := bson.M{
+		"$or": bson.A{
+			bson.M{
+				"title": bson.M{
+					"$regex":   query,
+					"$options": "i",
+				},
+			},
+			bson.M{
+				"description": bson.M{
+					"$regex":   query,
+					"$options": "i",
+				},
+			},
+			bson.M{
+				"tags": bson.M{
+					"$in": []string{query},
+				},
+			},
+		},
+		"user_id": bson.M{
+			"$exists": true,
+		},
+	}
+
+	cur, err := db.Database("youtube").Collection("videos").Find(ctx, to_search_videos)
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	var videos []domain.Video
+	for cur.Next(ctx) {
+		var video domain.Video
+		if err := cur.Decode(&video); err != nil {
+			errchan <- err
+			return
+		}
+		videos = append(videos, video)
+	}
+	if err := cur.Close(ctx); err != nil {
+		errchan <- err
+		return
+	}
+	videoschan <- &videos
+}
+
+func GetTrendingVideosFromMongodb(ctx context.Context, videoschan chan<- *[]domain.Video, errchan chan<- error, db *mongo.Client) {
+	to_get_trending_videos := bson.A{
+		bson.M{
+			"$sort": bson.M{
+				"views": -1,
+			},
+		},
+		bson.M{
+			"$limit": 2,
+		},
+	}
+
+	cur, err := db.Database("youtube").Collection("videos").Aggregate(ctx, to_get_trending_videos)
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	var videos []domain.Video
+
+	for cur.Next(ctx) {
+		var video domain.Video
+		if err := cur.Decode(&video); err != nil {
+			errchan <- err
+			return
+		}
+		videos = append(videos, video)
+	}
+	videoschan <- &videos
+}
+
+func LikeVideo(ctx context.Context, videochan chan<- *domain.Video, errchan chan<- error, videoid string, userid string, db *mongo.Client) {
+	user_obj_id, _ := primitive.ObjectIDFromHex(userid)
+	video_obj_id, _ := primitive.ObjectIDFromHex(videoid)
+
+	to_find_video := bson.M{
+		"_id": video_obj_id,
+	}
+
+	update_video := bson.M{
+		"$addToSet": bson.M{
+			"likes": user_obj_id,
+		},
+		"$pull": bson.M{
+			"dislikes": user_obj_id,
+		},
+	}
+
+	update_result, err := db.Database("youtube").Collection("videos").UpdateOne(ctx, to_find_video, update_video)
+
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	fmt.Println("Updated Result")
+	fmt.Println(update_result)
+
+	var liked_video domain.Video
+	if err := db.Database("youtube").Collection("videos").FindOne(ctx, to_find_video).Decode(&liked_video); err != nil {
+		errchan <- err
+		return
+	}
+	videochan <- &liked_video
+}
+
+func DislikeVideo(ctx context.Context, videochan chan<- *domain.Video, errchan chan<- error, videoid string, userid string, db *mongo.Client) {
+	user_obj_id, _ := primitive.ObjectIDFromHex(userid)
+	video_obj_id, _ := primitive.ObjectIDFromHex(videoid)
+
+	to_find_video := bson.M{
+		"_id": video_obj_id,
+	}
+
+	update_video := bson.M{
+		"$addToSet": bson.M{
+			"dislikes": user_obj_id,
+		},
+		"$pull": bson.M{
+			"likes": user_obj_id,
+		},
+	}
+
+	updated_video_res, err := db.Database("youtube").Collection("videos").UpdateOne(ctx, to_find_video, update_video)
+	if err != nil {
+		errchan <- err
+		return
+	}
+	fmt.Println("Updated Result")
+	fmt.Println(updated_video_res)
+
+	var disliked_video domain.Video
+	if err := db.Database("youtube").Collection("videos").FindOne(ctx, to_find_video).Decode(&disliked_video); err != nil {
+		errchan <- err
+		return
+	}
+	videochan <- &disliked_video
 }

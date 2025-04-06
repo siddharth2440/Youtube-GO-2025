@@ -47,11 +47,16 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 		videoRoute.POST("/add-video", videoHandler.AddVideoHandler)
 		videoRoute.PUT("/update-video/:video_id", videoHandler.UpdateVideoHandler)
 		videoRoute.DELETE("/delete-video/:video_id", videoHandler.DeleteVideoHandler)
+		videoRoute.PUT("/like-video/:videoid", videoHandler.LikeVideoHandler)
+		videoRoute.PUT("/dislike-video/:videoid", videoHandler.DislikeVideoHandler)
 	}
 
 	publicVideoRoute := route.Group("/api/v1/public-video")
 	{
 		publicVideoRoute.GET("/get-video/:videoid", videoHandler.GetVideoDetailsHandler)
+		publicVideoRoute.GET("/get-random-videos", videoHandler.GetRandomVideosHandler)
+		publicVideoRoute.GET("/search-videos", videoHandler.SearchVideoHandler)
+		publicVideoRoute.GET("/trending-videos", videoHandler.TrendingVideosHandler)
 	}
 
 	route.GET("/", func(ctx *gin.Context) {

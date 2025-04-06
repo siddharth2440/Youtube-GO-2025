@@ -180,3 +180,197 @@ func (NVh *VideoHandlerStruct) GetVideoDetailsHandler(ctx *gin.Context) {
 		}
 	}
 }
+
+// random videos
+func (NVh *VideoHandlerStruct) GetRandomVideosHandler(ctx *gin.Context) {
+	limit := ctx.Query("limit")
+
+	videoschan := make(chan *[]domain.Video, 1)
+	errchan := make(chan error, 1)
+
+	go func(videoschan chan<- *[]domain.Video, errchan chan<- error, limit *string) {
+		videos, err := NVh.service.GetRandomVideosService(*limit)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		videoschan <- videos
+	}(videoschan, errchan, &limit)
+	for {
+		select {
+		case videos := <-videoschan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    videos,
+				},
+			)
+			return
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": true,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
+
+// search
+func (NVh *VideoHandlerStruct) SearchVideoHandler(ctx *gin.Context) {
+	query := ctx.Query("query")
+
+	videoschan := make(chan *[]domain.Video, 1)
+	errchan := make(chan error, 1)
+
+	go func(videoschan chan<- *[]domain.Video, errchan chan<- error, query *string) {
+		videos, err := NVh.service.SearchVideoService(*query)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		videoschan <- videos
+	}(videoschan, errchan, &query)
+
+	for {
+		select {
+		case videos := <-videoschan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    videos,
+				},
+			)
+			return
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": true,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
+
+// trending videos
+func (NVh *VideoHandlerStruct) TrendingVideosHandler(ctx *gin.Context) {
+	videoschan := make(chan *[]domain.Video, 1)
+	errorchan := make(chan error, 1)
+
+	go func(videoschan chan<- *[]domain.Video, errchan chan<- error) {
+		videos, err := NVh.service.GetTrendingVideoService()
+		if err != nil {
+			errchan <- err
+			return
+		}
+		videoschan <- videos
+	}(videoschan, errorchan)
+
+	for {
+		select {
+		case videos := <-videoschan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    videos,
+				},
+			)
+			return
+		case err := <-errorchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
+
+func (NVh *VideoHandlerStruct) LikeVideoHandler(ctx *gin.Context) {
+	userid := ctx.GetString("authuserid")
+	videoid := ctx.Param("videoid")
+
+	videochan := make(chan *domain.Video, 1)
+	errchan := make(chan error, 1)
+
+	go func(videochan chan<- *domain.Video, errchan chan<- error, userid string, videoid string) {
+		liked_video, err := NVh.service.LikeVideoService(userid, videoid)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		videochan <- liked_video
+	}(videochan, errchan, userid, videoid)
+	for {
+		select {
+		case video := <-videochan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    video,
+				},
+			)
+			return
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+		}
+	}
+}
+
+func (NVh *VideoHandlerStruct) DislikeVideoHandler(ctx *gin.Context) {
+	userid := ctx.GetString("authuserid")
+	videoid := ctx.Param("videoid")
+
+	videochan := make(chan *domain.Video, 1)
+	errchan := make(chan error, 1)
+
+	go func(videochan chan<- *domain.Video, errchan chan<- error, userid *string, videoid *string) {
+		disliked_video, err := NVh.service.DislikeVideoService(*userid, *videoid)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		videochan <- disliked_video
+	}(videochan, errchan, &userid, &videoid)
+	for {
+		select {
+		case video := <-videochan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    video,
+				},
+			)
+			return
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
