@@ -23,6 +23,8 @@ func NewCommentService(db *mongo.Client, redis *redis.Client) *CommentServiceStr
 type CommentServiceInterface interface {
 	AddCommentService(comment *domain.Comment, userid string, videoid string) (*domain.Comment, error)
 	GetCommentsService(videoid string) (*[]domain.Comment, error)
+	GetcommentDetails(commentid string) (*domain.Comment, error)
+	DeleteCommentService(commentid, userid string) (*domain.Comment, error)
 }
 
 func (NCs *CommentServiceStruct) AddCommentService(comment *domain.Comment, userid string, videoid string) (*domain.Comment, error) {
@@ -62,6 +64,53 @@ func (NCs *CommentServiceStruct) GetCommentsService(videoid string) (*[]domain.C
 		case comments := <-commentschan:
 			return comments, nil
 		case err := <-errchan:
+			return nil, err
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
+}
+
+// get comment details
+func (NCs *CommentServiceStruct) GetcommentDetails(commentid string) (*domain.Comment, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+	defer cancel()
+
+	commentchan := make(chan *domain.Comment, 1)
+	errchan := make(chan error, 1)
+
+	// worker to get comment details
+	go mongoworkers.GetcommentDetails(ctx, commentchan, errchan, NCs.db, commentid)
+
+	for {
+		select {
+		case comment := <-commentchan:
+			return comment, nil
+		case err := <-errchan:
+			return nil, err
+		case <-ctx.Done():
+			return nil, context.DeadlineExceeded
+		}
+	}
+
+}
+
+// delete comment
+func (NCs *CommentServiceStruct) DeleteCommentService(commentid, userid string) (*domain.Comment, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	defer cancel()
+
+	commentchan := make(chan *domain.Comment, 1)
+	errorchan := make(chan error, 1)
+
+	// worker to delete the comment
+	go mongoworkers.DeleteCommentIMongoDb(ctx, commentchan, errorchan, NCs.db, commentid, userid)
+
+	for {
+		select {
+		case comment := <-commentchan:
+			return comment, nil
+		case err := <-errorchan:
 			return nil, err
 		case <-ctx.Done():
 			return nil, context.DeadlineExceeded

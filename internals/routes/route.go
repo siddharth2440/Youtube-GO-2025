@@ -25,6 +25,7 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 	commentHandler := handlers.NewCommentHandler(commentService)
 
 	authRoute := route.Group("/api/v1/auth")
+	authRoute.Use(middlewares.RateLimit())
 	{
 		authRoute.POST("/register", authHandler.UserRegisterHandler)
 		authRoute.POST("/login", authHandler.UserLoginHandler)
@@ -33,6 +34,7 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 
 	userRoute := route.Group("/api/v1/user")
 	userRoute.Use(middlewares.AuthMiddleware())
+	userRoute.Use(middlewares.RateLimit())
 	{
 		userRoute.PUT("/update-user-details/:userid", userHandler.UpdateUserDetailsHandler)
 		userRoute.DELETE("/delete-user/:userid", userHandler.DeleteUserHandler)
@@ -45,6 +47,7 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 
 	videoRoute := route.Group("/api/v1/video")
 	videoRoute.Use(middlewares.AuthMiddleware())
+	videoRoute.Use(middlewares.RateLimit())
 	{
 		videoRoute.POST("/add-video", videoHandler.AddVideoHandler)
 		videoRoute.PUT("/update-video/:video_id", videoHandler.UpdateVideoHandler)
@@ -54,6 +57,7 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 	}
 
 	publicVideoRoute := route.Group("/api/v1/public-video")
+	publicVideoRoute.Use(middlewares.RateLimit())
 	{
 		publicVideoRoute.GET("/get-video/:videoid", videoHandler.GetVideoDetailsHandler)
 		publicVideoRoute.GET("/get-random-videos", videoHandler.GetRandomVideosHandler)
@@ -63,13 +67,17 @@ func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 
 	commentProtectedRoute := route.Group("/api/v1/comment")
 	commentProtectedRoute.Use(middlewares.AuthMiddleware())
+	commentProtectedRoute.Use(middlewares.RateLimit())
 	{
 		commentProtectedRoute.POST("/add-comment/:videoid", commentHandler.AddCommentHandler)
+		commentProtectedRoute.DELETE("/remove-comment/:commentid", commentHandler.DeleteCommentHandler)
 	}
 
 	commentpublicroute := route.Group("/api/v1/public-comment")
+	commentpublicroute.Use(middlewares.RateLimit())
 	{
 		commentpublicroute.GET("/get-comments/:videoid", commentHandler.GetCommentsHandler)
+		commentpublicroute.GET("/get-comment-details/:commentid", commentHandler.GetCommentDetailsHandler)
 	}
 
 	route.GET("/", func(ctx *gin.Context) {

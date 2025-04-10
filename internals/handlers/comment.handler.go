@@ -110,4 +110,86 @@ func (NCh *CommentHandlerStruct) GetCommentsHandler(ctx *gin.Context) {
 }
 
 // get a particular comment
+func (NCh *CommentHandlerStruct) GetCommentDetailsHandler(ctx *gin.Context) {
+	commentid := ctx.Param("commentid")
+
+	commentchan := make(chan *domain.Comment, 1)
+	errchan := make(chan error, 1)
+
+	go func(commentchan chan<- *domain.Comment, errchan chan<- error, commentid string) {
+		comment, err := NCh.services.GetcommentDetails(commentid)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		commentchan <- comment
+	}(commentchan, errchan, commentid)
+
+	for {
+		select {
+		case comment := <-commentchan:
+			ctx.JSON(
+				http.StatusAccepted,
+				gin.H{
+					"success": true,
+					"data":    comment,
+				},
+			)
+			return
+
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+	}
+}
+
 // delete comment
+func (NCh *CommentHandlerStruct) DeleteCommentHandler(ctx *gin.Context) {
+	commentid := ctx.Param("commentid")
+	userid := ctx.GetString("authuserid")
+
+	commentchan := make(chan *domain.Comment, 1)
+	errchan := make(chan error, 1)
+
+	go func(commentchan chan<- *domain.Comment, errchan chan<- error, commentid, userid string) {
+		comment, err := NCh.services.DeleteCommentService(commentid, userid)
+		if err != nil {
+			errchan <- err
+			return
+		}
+		commentchan <- comment
+	}(commentchan, errchan, commentid, userid)
+
+	for {
+		select {
+		case comment := <-commentchan:
+			ctx.JSON(
+				http.StatusOK,
+				gin.H{
+					"success": true,
+					"data":    comment,
+					"mesage":  "Comment deleted succesfully",
+				},
+			)
+			return
+
+		case err := <-errchan:
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"success": false,
+					"error":   err.Error(),
+				},
+			)
+			return
+		}
+
+	}
+}

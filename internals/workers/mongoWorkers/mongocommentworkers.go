@@ -62,3 +62,53 @@ func GetComments(ctx context.Context, commentschan chan<- *[]domain.Comment, err
 
 	commentschan <- &comments
 }
+
+func GetcommentDetails(ctx context.Context, commentchan chan<- *domain.Comment, errchan chan<- error, db *mongo.Client, commentid string) {
+	comment_obj_id, err := primitive.ObjectIDFromHex(commentid)
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	to_find_comment := bson.M{
+		"_id": comment_obj_id,
+	}
+	var comment domain.Comment
+	if err := db.Database("youtube").Collection("comments").FindOne(ctx, to_find_comment).Decode(&comment); err != nil {
+		errchan <- err
+		return
+	}
+	commentchan <- &comment
+}
+
+func DeleteCommentIMongoDb(ctx context.Context, commentchan chan<- *domain.Comment, errchan chan<- error, db *mongo.Client, commentid string, userid string) {
+	comment_obj_id, err := primitive.ObjectIDFromHex(commentid)
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	user_obj_id, err := primitive.ObjectIDFromHex(userid)
+	if err != nil {
+		errchan <- err
+		return
+	}
+
+	to_find_comment := bson.M{
+		"$and": bson.A{
+			bson.M{
+				"_id": comment_obj_id,
+			},
+			bson.M{
+				"userid": user_obj_id,
+			},
+		},
+	}
+
+	var deleted_comment_details domain.Comment
+	if err := db.Database("youtube").Collection("comments").FindOneAndDelete(ctx, to_find_comment).Decode(&deleted_comment_details); err != nil {
+		errchan <- err
+		return
+	}
+	commentchan <- &deleted_comment_details
+}
