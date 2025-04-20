@@ -5,12 +5,17 @@ import (
 	"github.com/itsmonday/youtube/internals/handlers"
 	"github.com/itsmonday/youtube/internals/middlewares"
 	"github.com/itsmonday/youtube/internals/services"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func SetupRouter(redis *redis.Client, mongo *mongo.Client) *gin.Engine {
 	route := gin.Default()
+	middlewares.Init()
+
+	route.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	route.Use(middlewares.TrackMetrics())
 
 	// services
 	authService := services.NewAuthService(mongo, redis)

@@ -1,0 +1,72 @@
+version: '3.9'
+
+services:
+    # server
+    server:
+        container_name: api_container
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - "7565:7565"
+        env_file:
+            - ./.env
+        environment:
+            - MONGO_URI=mongodb://admin:password@mongodb:27017
+        volumes:
+            - db:/data/db
+        depends_on:
+            - mongodb
+            - redis
+    # mongodb
+    mongodb:
+        container_name: mongo_container
+        image: mongo:latest
+        ports:
+            - "27017:27017"
+        environment:
+            - MONGO_INITDB_ROOT_USERNAME=admin
+            - MONGO_INITDB_ROOT_PASSWORD=password
+        volumes:
+            - db:/data/db
+    # redis
+    redis:
+        container_name: redis_container
+        image: redis/redis-stack
+        ports:
+            - "8001:8001"
+            - "6379:6379"
+    # prometheus
+    prometheus:
+        container_name: prome_container
+        image: prom/prometheus
+        ports:
+            - "9090:9090"
+        volumes:
+            - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+        depends_on:
+            - server
+    # grafana
+    grafana:
+        container_name: grafana_container
+        ports:
+            - "3000:3000"
+        image: grafana/grafana-oss
+        environment:
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+        depends_on:
+            - prometheus
+    # nginx
+    nginx:
+        container_name: nginx_container
+        build:
+            context: ./nginx
+            dockerfile: Dockerfile
+        restart: always
+        ports:
+            - "8080:8080"
+        depends_on:
+            - server
+volumes:
+    db:
+       driver: local
